@@ -1,0 +1,3 @@
+import('glmnet')
+useDynLib(RidgeVar)
+exportPattern("^[[:alpha:]]+")
