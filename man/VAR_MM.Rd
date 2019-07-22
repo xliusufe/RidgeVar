@@ -25,7 +25,7 @@
 }
 
 
-\references{Dicker, L. H. (2014). Variance estimation in high-dimensional linear models. Biometrik {\bold{101}}, 269-284.
+\references{Dicker, L. H. (2014). Variance estimation in high-dimensional linear models. Biometrika {\bold{101}}, 269-284.
 }
 
 \examples{ 

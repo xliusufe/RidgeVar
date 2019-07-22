@@ -4,7 +4,7 @@
   Ridge Regression Based Variance Estimation in High-Dimensional Linear Models
 }
 \description{
-  Use the ridge regression based method of Xu Liu et al. (2019) to estimate the residual variance in linear model. The proposal is valid under both low- and high-dimensional models, and performs well not only for the non-sparse cases but also for the sparse ones. 
+  Use the ridge regression based method of Liu et al. (2019) to estimate the residual variance in linear model. The proposal is valid under both low- and high-dimensional models, and performs well not only for the non-sparse cases but also for the sparse ones. 
 }
 
 \usage{VAR_RR(y,x,eta=NULL,alpha=0.1)
