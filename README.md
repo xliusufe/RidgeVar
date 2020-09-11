@@ -11,6 +11,7 @@ R package "RidgeVar" for estimation of error variance via ridge regression. Prov
 
    - [x] [RidgeVar-manual.pdf](https://github.com/xliusufe/RidgeVar/blob/master/inst/RidgeVar-manual.pdf) ---------- Details of the usage of the package.
    - [x] [ridgevar](https://github.com/xliusufe/RidgeVarpy) ------------------------ the corresponding `Python` package
+   - [x] [Bioka20200481.pdf](https://github.com/xliusufe/RidgeVar/blob/master/inst/Bioka20200481.pdf) ---------- The published paper Liu et al. (2020).   
 # Example
     library(RidgeVar)
 
