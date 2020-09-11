@@ -1,3 +1,4 @@
 import('glmnet')
 useDynLib(RidgeVar)
 exportPattern("^[[:alpha:]]+")
+export(VAR_RR, COV_RR, VAR_MM, VAR_RCV, VAR_MLE)

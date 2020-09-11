@@ -29,11 +29,11 @@
 }
 
 \examples{ 
-n   <- 60
+n   <- 80
 p   <- 100
 beta <- c(sqrt(0.1/p)*rep(1,p/2),rep(0,p/2))
-eps <- rnorm(n)
 x <- matrix(rnorm(n*p),n,p)
-y <- x\%*\%beta+eps
+y <- rnorm(n)
+y <- y + x \%*\% beta
 fit <- VAR_MLE(y,x)
 }

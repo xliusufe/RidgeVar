@@ -4,349 +4,313 @@
 #include <Rinternals.h>  // required for SEXP et.al.;
 #include <float.h>  // required for DBL_EPSILON
 #include <string.h> // required for memcpy()
-#include <time.h>
+#include "var_hdh.h"
 
-#define FMAX(a,b) ((a) > (b) ? (a) : (b))
+void cov_rrn(double *sigma2, double *trA1, double *x1, double *y, double eta_k, int n, int p, int q, int *debias){
+	int i, j, k;
 
-void freematrix(double **x, int n)
-{
-	for (int i = 0; i < n; ++i)  free(x[i]);
-	free(x);
-}
+	double An1_tr = 0.0, YAn1Y, bias = 0.0, vy0;
+	double **xtx 	= requirematrix(n, n, 0);
+	double *lam 	= (double*)malloc(sizeof(double)*n);		
+	double **x 		= (double**)malloc(sizeof(double*)*n);
+	double *vy 		= (double*)malloc(sizeof(double)*n*q);
 
-double** requirematrix(int n, int p, int zero)
-{
-	double **x;
-	x = (double**)malloc(sizeof(double*)*n);
-	if (zero == 1) {
-		for (int i = 0; i < n; ++i) {
-			x[i] = (double*)calloc(p, sizeof(double));
-			if (x[i] == NULL) fprintf(stderr, "Unable to allocate enough memory for array!\n");
-		}
-	} else {
-		for (int i = 0; i < n; ++i) {
-			x[i] = (double*)malloc(p*sizeof(double));
-			if (x[i] == NULL) fprintf(stderr, "Unable to allocate enough memory for array!\n");
-		}
-	}
-	return x;
-}
+	for (i = 0; i < n; i++) x[i] = &x1[i*p];
 
-double pythag(double a, double b)
-{
-    double absa,absb;
-    absa=fabs(a);
-    absb=fabs(b);
-    if (absa > absb) return absa*sqrt(1.0+(absb/absa)*(absb/absa));
-    else return (absb == 0.0 ? 0.0 : absb*sqrt(1.0+(absa/absb)*(absa/absb)));
-}
-
-double SIGN(const double a, const double b)
-{return (b >= 0 ? (a >= 0 ? a : -a) : (a >= 0 ? -a : a));}
-
-void tred2(double **z, double *d, double *e, int n, int yesvecs)
-{
-    int l,k,j,i;
-    double scale,hh,h,g,f;
-    for (i=n-1;i>0;i--) {
-        l=i-1;
-        h=scale=0.0;
-        if (l > 0) {
-            for (k=0;k<i;k++)
-                scale += fabs(z[i][k]);
-            if (scale == 0.0)
-                e[i]=z[i][l];
-            else {
-                for (k=0;k<i;k++) {
-                    z[i][k] /= scale;
-                    h += z[i][k]*z[i][k];
-                }
-                f=z[i][l];
-                g=(f >= 0.0 ? -sqrt(h) : sqrt(h));
-                e[i]=scale*g;
-                h -= f*g;
-                z[i][l]=f-g;
-                f=0.0;
-                for (j=0;j<i;j++) {
-                    if (yesvecs)
-                        z[j][i]=z[i][j]/h;
-                    g=0.0;
-                    for (k=0;k<j+1;k++)
-                        g += z[j][k]*z[i][k];
-                    for (k=j+1;k<i;k++)
-                        g += z[k][j]*z[i][k];
-                    e[j]=g/h;
-                    f += e[j]*z[i][j];
-                }
-                hh=f/(h+h);
-                for (j=0;j<i;j++) {
-                    f=z[i][j];
-                    e[j]=g=e[j]-hh*f;
-                    for (k=0;k<j+1;k++)
-                        z[j][k] -= (f*e[k]+g*z[i][k]);
-                }
-            }
-        } else
-            e[i]=z[i][l];
-        d[i]=h;
-    }
-    if (yesvecs) d[0]=0.0;
-    e[0]=0.0;
-    for (i=0;i<n;i++) {
-        if (yesvecs) {
-            if (d[i] != 0.0) {
-                for (j=0;j<i;j++) {
-                    g=0.0;
-                    for (k=0;k<i;k++)
-                        g += z[i][k]*z[k][j];
-                    for (k=0;k<i;k++)
-                        z[k][j] -= g*z[k][i];
-                }
-            }
-            d[i]=z[i][i];
-            z[i][i]=1.0;
-            for (j=0;j<i;j++) z[j][i]=z[i][j]=0.0;
-        } else {
-            d[i]=z[i][i];
-        }
-    }
-}
-
-void tqli(double **z, double *d, double *e, int n, int yesvecs)
-{
-    int m,l,iter,i,k;
-    double s,r,p,g,f,dd,c,b;
-    const double EPS=DBL_EPSILON;
-    for (i=1;i<n;i++) e[i-1]=e[i];
-    e[n-1]=0.0;
-    for (l=0;l<n;l++) {
-        iter=0;
-        do {
-            for (m=l;m<n-1;m++) {
-                dd=fabs(d[m])+fabs(d[m+1]);
-                if (fabs(e[m]) <= EPS*dd) break;
-            }
-            if (m != l) {
-                if (iter++ == 50) {
-                    printf("Too many iterations in eigencmp.");
-                    //exit(1);
-                }
-                g=(d[l+1]-d[l])/(2.0*e[l]);
-                r=pythag(g,1.0);
-                g=d[m]-d[l]+e[l]/(g+SIGN(r,g));
-                s=c=1.0;
-                p=0.0;
-                for (i=m-1;i>=l;i--) {
-                    f=s*e[i];
-                    b=c*e[i];
-                    e[i+1]=(r=pythag(f,g));
-                    if (r == 0.0) {
-                        d[i+1] -= p;
-                        e[m]=0.0;
-                        break;
-                    }
-                    s=f/r;
-                    c=g/r;
-                    g=d[i+1]-p;
-                    r=(d[i]-g)*s+2.0*c*b;
-                    d[i+1]=g+(p=s*r);
-                    g=c*r-b;
-                    if (yesvecs) {
-                        for (k=0;k<n;k++) {
-                            f=z[k][i+1];
-                            z[k][i+1]=s*z[k][i]+c*f;
-                            z[k][i]=c*z[k][i]-s*f;
-                        }
-                    }
-                }
-                if (r == 0.0 && i >= l) continue;
-                d[l] -= p;
-                e[l]=g;
-                e[m]=0.0;
-            }
-        } while (m != l);
-    }
-}
-
-void eigencmp(double **z, double *d, int n, int yesvecs)
-{
-    double *e = (double*)calloc(n, sizeof(double));
-    tred2(z, d, e, n, yesvecs);
-    tqli(z, d, e, n, yesvecs);
-    free(e);
-}
-
-void matrixprod(double **x, double **y, double **xy, 
-	int n, int p, int q, int transpose) 
-{
-  int i,j,k;
-  if (transpose == 0) {
-  	for (i = 0; i < n; ++i) {
-  		for (j = 0; j < q; ++j) {
-  			xy[i][j] = 0;
-  			for (k = 0; k < p; ++k) xy[i][j] += x[i][k]*y[k][j];
-  		}
-  	}
-  } else if (transpose == 1) {
-  	double **tx = requirematrix(n, p, 0);
+	matrixprod(x, x, xtx, n, p, n, 2);
 	for (i = 0; i < n; ++i) {
-		for (j = 0; j < p; ++j) tx[i][j] = x[j][i];
+		for (j = 0; j < n; ++j) xtx[i][j] /= n;
 	}
-	matrixprod(tx, y, xy, n, p, q, 0);
-	freematrix(tx, n);
-  } else if (transpose == 2) {
-  	double **ty = requirematrix(p, q, 0);
-	for (i = 0; i < p; ++i) {
-		for (j = 0; j < q; ++j) ty[i][j] = y[j][i];
-	}
-	matrixprod(x, ty, xy, n, p, q, 0);
-	freematrix(ty, p);
-  }
-}
 
-void solve_(double **Sn, double eta_k, int p, double **Sn_inv)
-{
-	int i,j,k;
-	double **U = requirematrix(p, p, 0);
-	double *singular = (double*)malloc(sizeof(double)*p);
+	eigencmp(xtx, lam, n, 1);
 
-	for (j = 0; j < p; ++j) {
-		U[j][j] = Sn[j][j] + eta_k;
-		for (i = j+1; i < p; ++i) 
-			U[j][i] = U[i][j] = Sn[i][j];
-	}
-	eigencmp(U, singular, p, 1);
-	for (j = 0; j < p; ++j) {
-		for (i = j; i < p; ++i) {
-			Sn_inv[i][j] = 0;
-			for (k = 0; k < p; ++k)
-				Sn_inv[i][j] += U[i][k]*U[j][k]/singular[k];
-			if (i != j) Sn_inv[j][i] = Sn_inv[i][j];
+	for (j = 0; j < n; ++j)	An1_tr += 1/(eta_k+lam[j]);
+	trA1[0]	= eta_k*An1_tr;  // n - tr(A1n)
+
+	for (k = 0; k < q; k++){
+		for (j = 0; j < n; ++j){		
+			vy0 = 0.0;
+			for (i = 0; i < n; ++i) vy0 += xtx[i][j]*y[k*n+i];
+			vy[k*n+j] = vy0;
 		}
 	}
 
-	freematrix(U, p);
-	free(singular);
-}
-
-double setup_eta(double *y, double **x, double *alpha, int *para)
-{
-	int n=para[0], p=para[1];
-	double txy, maxtxy;
-	maxtxy = 0.0;
-	for (int i = 0; i < p; ++i) {
-		txy = 0.0;
-		for (int j = 0; j < n; ++j) txy += y[j]*x[j][i];
-		maxtxy = FMAX(fabs(txy), maxtxy);
-	}
-	maxtxy = maxtxy/n/p*alpha[0];
-
-	return maxtxy;
-}
-
-void var_rr(double *y, double **x, double eta_k, int *para, double *sigma2, int *debias)
-{
-	int n=para[0], p=para[1];
-	int i, j;
-
-	if (p<=n) {
-		double **Sn = requirematrix(p, p, 0);
-		double **Sn_inv = requirematrix(p, p, 0);
-		double **temp = requirematrix(p, n, 0);
-		double **An1 = requirematrix(n, n, 0);
-		double An1_tr = 0.0, ynorm = 0.0, temp2 = 0.0;
-		double *temp1 = (double*)calloc(n, sizeof(double));
-
-
-		matrixprod(x, x, Sn, p, n, p, 1);
-		for (i = 0; i < p; ++i) {
-			for (j = 0; j < p; ++j) Sn[i][j] /= n;
-		}
-
-		solve_(Sn, eta_k, p, Sn_inv);
-		matrixprod(Sn_inv, x, temp, p, p, n, 2);
-		matrixprod(x, temp, An1, n, p, n, 0);
-		for (i = 0; i < n; ++i) {
+	for (k = 0; k < q; k++){
+		for (i = k; i < q; i++){
+			YAn1Y	= 0.0;			
 			for (j = 0; j < n; ++j) {
-				An1[i][j] /= n;
-				temp1[i] += An1[i][j]*y[j];
+				YAn1Y += vy[k*n+j]*vy[i*n+j]/(eta_k+lam[j]);
 			}
-			An1_tr += An1[i][i];
-			ynorm += pow(y[i], 2);
-			temp2 += temp1[i]*y[i];
+			if (debias[0] == 1) bias = eta_k*YAn1Y/An1_tr;			
+			sigma2[k*q+i] = YAn1Y/An1_tr - bias;
 		}
-		ynorm /= n;
-		sigma2[0] = (ynorm - temp2/n) / (1-An1_tr/n);
-
-		free(temp1);
-		freematrix(Sn, p);
-		freematrix(Sn_inv, p);
-		freematrix(temp, p);
-		freematrix(An1, n);
-	} else {
-		double **xtx = requirematrix(n, n, 0);
-		double *lam = (double*)malloc(sizeof(double)*n);
-		double *vy = (double*)calloc(n, sizeof(double));
-		double An1_tr = 0.0, ynorm = 0.0, YAn1Y = 0.0, bias = 0.0;
-
-		matrixprod(x, x, xtx, n, p, n, 2);
-		for (i = 0; i < n; ++i) {
-			for (j = 0; j < n; ++j) xtx[i][j] /= n;
-		}
-
-		eigencmp(xtx, lam, n, 1);
-
-		for (j = 0; j < n; ++j) {
-			for (i = 0; i < n; ++i) vy[j] += xtx[i][j]*y[i];
-			An1_tr += 1/(eta_k+lam[j]);
-			YAn1Y += pow(vy[j], 2)/(eta_k+lam[j]);
-			ynorm += pow(y[j], 2);
-		}
-		if (debias[0] == 1) bias = eta_k*YAn1Y/An1_tr;
-		sigma2[0] = YAn1Y/An1_tr - bias;
-
-		freematrix(xtx, n);
-		free(lam);
-		free(vy);
 	}
+	for (k = 1; k < q; k++){
+		for (i = 0; i < k; i++){		
+			sigma2[k*q+i] = sigma2[i*q+k];
+		}
+	}
+
+	freematrix(xtx, n);
+	free(lam);
+	free(x);
+	free(vy);
+	
 }
 
-SEXP VAR_RR(SEXP Y_, SEXP X_, SEXP ETAK_, SEXP PARA_, SEXP DEBIAS_, SEXP ALPHA_, SEXP ISNULLETA_)
+void cov_rrp(double *sigma2, double *trA1, double *x1, double *y, double eta_k, int n, int p, int q, int is_eta){
+	int i, j, k;
+
+	double An1_tr = 0.0, tmp, normqy,normrqy;
+	double *x, *Q, *R, *qy, *invR, *rqy;
+	x 		= (double*)malloc(sizeof(double)*n*p); 
+	Q 		= (double*)malloc(sizeof(double)*n*p); 
+	R 		= (double*)malloc(sizeof(double)*p*p); 
+	invR 	= (double*)malloc(sizeof(double)*p*p);
+	qy 		= (double*)malloc(sizeof(double)*p*q);
+	rqy 	= (double*)malloc(sizeof(double)*p*q);
+
+	for(j=0;j<p;j++){
+		for(i=0;i<n;i++)	x[j*n+i]	= x1[i*p+j];
+	}
+	QRDecompN(Q, R, x, n, p);
+	LowTriangularInv(invR, p, R);	
+
+	An1_tr = n - p;
+	if(is_eta){
+		tmp = 0.0;
+		for(i=0;i<p;i++)
+			for(j=0;j<=i;j++)
+				tmp	+= invR[i*p+j]*invR[i*p+j];		
+		An1_tr	+= n*eta_k*tmp;	
+	}
+	trA1[0]	= An1_tr;
+	
+	for(k=0;k<q;k++){
+		for(j=0;j<p;j++){
+			tmp = 0.0; 
+			for(i=0;i<n;i++) tmp += Q[j*n+i]*y[k*n+i];
+			qy[k*p+j] = tmp;					
+		}
+	}
+
+	if(is_eta){
+		for(k=0;k<q;k++){
+			for(j=0;j<p;j++){
+				tmp = 0.0;
+				for(i=j;i<p;i++)	tmp	+= invR[i*p+j]*qy[k*q+i];
+				rqy[k*p+j]	= tmp;	
+			}	
+		}		
+	}
+
+
+	for(k=0;k<q;k++){
+		for(j=k;j<q;j++){
+			tmp = normqy = 0.0; 
+			for(i=0;i<n;i++) tmp 	+= y[j*n+i]*y[k*n+i];
+			for(i=0;i<p;i++) normqy += qy[k*p+i]*qy[j*p+i];
+			sigma2[k*q+j]	= (tmp - normqy)/An1_tr;
+
+			if(is_eta){
+				normrqy = 0.0;
+				for(i=0;i<p;i++)	normrqy += rqy[k*p+i]*rqy[j*p+i];			
+				sigma2[k*q+j]	+=  n*eta_k*normrqy/An1_tr;
+			}
+		}
+	}
+	
+	for (k = 1; k < q; k++){
+		for (i = 0; i < k; i++){		
+			sigma2[k*q+i] = sigma2[i*q+k];
+		}
+	}
+
+	free(x);
+	free(Q);
+	free(R);
+	free(invR);
+	free(qy);	
+	free(rqy);
+}
+
+void var_rrn(double *sigma2, double *trA1, double *x1, double *y, double eta_k, int n, int p, int q, int *debias){
+	int i, j, k;
+
+	double An1_tr = 0.0, YAn1Y, bias = 0.0, vy;
+	double **xtx 	= requirematrix(n, n, 0);
+	double *lam 	= (double*)malloc(sizeof(double)*n);		
+	double **x 		= (double**)malloc(sizeof(double*)*n);
+
+	for (i = 0; i < n; i++) x[i] = &x1[i*p];
+
+	matrixprod(x, x, xtx, n, p, n, 2);
+	for (i = 0; i < n; ++i) {
+		for (j = 0; j < n; ++j) xtx[i][j] /= n;
+	}
+
+	eigencmp(xtx, lam, n, 1);
+
+	for (j = 0; j < n; ++j)	An1_tr += 1/(eta_k+lam[j]);
+	trA1[0]	= eta_k*An1_tr;  // n - tr(A1n)
+
+	for (k = 0; k < q; k++){
+		YAn1Y	= 0.0;			
+		for (j = 0; j < n; ++j) {
+			vy = 0.0;
+			for (i = 0; i < n; ++i) vy += xtx[i][j]*y[k*n+i];
+			YAn1Y += vy*vy/(eta_k+lam[j]);
+		}
+		if (debias[0] == 1) bias = eta_k*YAn1Y/An1_tr;			
+		sigma2[k] = YAn1Y/An1_tr - bias;
+	}
+
+	freematrix(xtx, n);
+	free(lam);
+	free(x);
+	
+}
+
+void var_rrp(double *sigma2, double *trA1, double *x1, double *y, double eta_k, int n, int p, int q, int is_eta){
+	int i, j, k;
+
+	double An1_tr = 0.0, tmp, normy, normqy, normrqy;
+	double *x, *Q, *R, *qy, *invR;
+	x 		= (double*)malloc(sizeof(double)*n*p);  
+	Q 		= (double*)malloc(sizeof(double)*n*p);  
+	R 		= (double*)malloc(sizeof(double)*p*p);  
+	qy 		= (double*)malloc(sizeof(double)*p);   	
+	invR 	= (double*)malloc(sizeof(double)*p*p);	
+
+	for(j=0;j<p;j++){
+		for(i=0;i<n;i++)	x[j*n+i]	= x1[i*p+j];
+	}
+	QRDecompN(Q, R, x, n, p);
+	LowTriangularInv(invR, p, R);	
+
+	An1_tr = n - p;
+	if(is_eta){
+		tmp = 0.0;
+		for(i=0;i<p;i++)
+			for(j=0;j<=i;j++)
+				tmp	+= invR[i*p+j]*invR[i*p+j];
+		
+		An1_tr	+= n*eta_k*tmp;	
+	}
+	trA1[0]	= An1_tr;
+	
+	for(k=0;k<q;k++){
+		normqy = 0.0;
+		for(j=0;j<p;j++){
+			tmp = 0.0; 
+			for(i=0;i<n;i++) tmp += Q[j*n+i]*y[k*n+i];
+			qy[j] = tmp;
+			normqy	+= tmp*tmp;
+		}
+		normy = 0.0;
+		for(i=0;i<n;i++)	normy += y[k*n+i]*y[k*n+i];
+		sigma2[k]	= (normy - normqy)/An1_tr;
+
+		if(is_eta){
+			normrqy = 0.0;
+			for(j=0;j<p;j++){
+				tmp = 0.0;
+				for(i=0;i<=j;i++)	tmp	+= invR[j*p+i]*qy[i];
+				normrqy	+= tmp*tmp;
+			}			
+			sigma2[k]	+=  n*eta_k*normrqy/An1_tr;
+		}
+	}
+	free(x);
+	free(Q);
+	free(R);
+	free(invR);
+	free(qy);	
+}
+
+SEXP VAR_RR(SEXP X_, SEXP Y_, SEXP ETAK_, SEXP PARA_, SEXP DEBIAS_, SEXP ALPHA_)
 {
 	// dimensions
 	int *para = INTEGER(PARA_);
 	int n     = para[0];
 	int p     = para[1];
+	int q     = para[2];
+	int is_eta= para[3];
 
 	// Pointers
-	double **x = (double**)malloc(sizeof(double*)*n);
-  	for (int i = 0; i < n; ++i) x[i] = &REAL(X_)[i*p];
-	double *y  = REAL(Y_);
-	double eta;
+	double *y	= REAL(Y_);
+	double *x	= REAL(X_);
+	double eta	= 0.0;
 
 	// Outcome
-	SEXP _output, _sigma2, _r_names;
-  	PROTECT(_output = allocVector(VECSXP, 1));
-  	PROTECT(_sigma2 = allocVector(REALSXP, 1));
-  	PROTECT(_r_names   = allocVector(STRSXP, 1));
+	SEXP _output, _sigma2, _trA1, _r_names;
+	PROTECT(_output 	= allocVector(VECSXP, 	2));
+	PROTECT(_r_names   	= allocVector(STRSXP, 	2));
+	PROTECT(_trA1 		= allocVector(REALSXP, 	1));
+	PROTECT(_sigma2 	= allocVector(REALSXP, 	q));
 
-  	if (INTEGER(ISNULLETA_)[0] == 1) {
-  		eta = setup_eta(y, x, REAL(ALPHA_), para);
-  	} else {
-  		eta = REAL(ETAK_)[0];
-  	}
-  	var_rr(y, x, eta, para, REAL(_sigma2), INTEGER(DEBIAS_));
-  	free(x);
+	if(p<n){	
+		if(is_eta)	eta = REAL(ETAK_)[0];
+		var_rrp(REAL(_sigma2), REAL(_trA1), x, y, eta, n, p, q, is_eta);
+	}
+	else{
+		if(is_eta)	eta = REAL(ETAK_)[0];
+		else	eta = setup_eta(y, x, REAL(ALPHA_), para);
+		var_rrn(REAL(_sigma2), REAL(_trA1), x, y, eta, n, p, q, INTEGER(DEBIAS_));
+	}
+	
 
-  	SET_STRING_ELT(_r_names, 0,  mkChar("sigma2"));
-	SET_VECTOR_ELT(_output, 0, _sigma2);
-	setAttrib(_output, R_NamesSymbol, _r_names); 
+	SET_STRING_ELT(_r_names, 	0,	mkChar("sigma2"));
+	SET_STRING_ELT(_r_names, 	1,	mkChar("trA1"));
+	SET_VECTOR_ELT(_output,		0, 	_sigma2);
+	SET_VECTOR_ELT(_output,		1, 	_trA1);
+	setAttrib(_output, 			R_NamesSymbol, _r_names); 
 
-	UNPROTECT(3);
+	UNPROTECT(4);
 	return _output;
 }
 
+SEXP COV_RR(SEXP X_, SEXP Y_, SEXP ETAK_, SEXP PARA_, SEXP DEBIAS_, SEXP ALPHA_)
+{
+	// dimensions
+	int *para = INTEGER(PARA_);
+	int n     = para[0];
+	int p     = para[1];
+	int q     = para[2];
+	int is_eta= para[3];
 
+	// Pointers
+	double *y	= REAL(Y_);
+	double *x	= REAL(X_);
+	double eta	= 0.0;
+
+	// Outcome
+	SEXP _output, _sigma2, _trA1, _r_names;
+	PROTECT(_output 	= allocVector(VECSXP, 	2));
+	PROTECT(_r_names   	= allocVector(STRSXP, 	2));
+	PROTECT(_trA1 		= allocVector(REALSXP, 	1));
+	PROTECT(_sigma2 	= allocVector(REALSXP, 	q*q));
+
+	if(p<n){	
+		if(is_eta)	eta = REAL(ETAK_)[0];
+		cov_rrp(REAL(_sigma2), REAL(_trA1), x, y, eta, n, p, q, is_eta);
+	}
+	else{
+		if(is_eta)	eta = REAL(ETAK_)[0];
+		else	eta = setup_eta_cov(y, x, REAL(ALPHA_), para);
+		cov_rrn(REAL(_sigma2), REAL(_trA1), x, y, eta, n, p, q, INTEGER(DEBIAS_));
+	}
+	
+
+	SET_STRING_ELT(_r_names, 	0,	mkChar("sigma2"));
+	SET_STRING_ELT(_r_names, 	1,	mkChar("trA1"));
+	SET_VECTOR_ELT(_output,		0, 	_sigma2);
+	SET_VECTOR_ELT(_output,		1, 	_trA1);
+	setAttrib(_output, 			R_NamesSymbol, _r_names); 
+
+	UNPROTECT(4);
+	return _output;
+}
 
 SEXP VAR_MM(SEXP Y_, SEXP X_, SEXP SIGMA_, SEXP PARA_, SEXP IDENTITY_, SEXP ISNULL_)
 {
@@ -421,16 +385,6 @@ SEXP VAR_MM(SEXP Y_, SEXP X_, SEXP SIGMA_, SEXP PARA_, SEXP IDENTITY_, SEXP ISNU
 	return _output;
 }
 
-double var(double *y, int n)
-{
-	int i;
-	double meany = 0.0, variance = 0.0;
-	for (i = 0; i < n; ++i) meany += y[i];
-	meany /= n;
-	for (i = 0; i < n; ++i) variance += pow(y[i] - meany, 2);
-	return variance/(n-1);
-}
-
 SEXP VAR_MLE(SEXP Y_, SEXP X_, SEXP PARA_, SEXP MAXITER_, SEXP TOL_)
 {
 	// dimensions
@@ -444,7 +398,7 @@ SEXP VAR_MLE(SEXP Y_, SEXP X_, SEXP PARA_, SEXP MAXITER_, SEXP TOL_)
 
 	// Intermediate quantities
 	int i, j, step = 1;
-	double theta0[2], theta[2], grad[2], sigma2, eta2, likelih0, likelih;
+	double sigma2, eta2, likelih0, likelih;
 	double yUy, trUxtx, yUxtxUy, trUxtxUxtx, yUxtxUxtxUy, theta1;
 	double **H = requirematrix(2, 2, 0);
 	double **xtx = requirematrix(n, n, 0);
@@ -453,8 +407,13 @@ SEXP VAR_MLE(SEXP Y_, SEXP X_, SEXP PARA_, SEXP MAXITER_, SEXP TOL_)
   	double *vy2 = (double*)malloc(sizeof(double)*n);
   	double *temp = (double*)malloc(sizeof(double)*n);
 
+	double *theta0 = (double*)malloc(sizeof(double)*2);
+	double *theta = (double*)malloc(sizeof(double)*2);
+	double *grad = (double*)malloc(sizeof(double)*2);
+
+
 	for (i = 0; i < n; ++i) x[i] = &REAL(X_)[i*p];
-	theta0[0] = log(var(y, n));
+	theta0[0] = log(var(y, n, 1));
 	theta0[1] = 0.01;
 	sigma2 = theta0[0];
 	eta2 = theta0[1];
@@ -526,6 +485,9 @@ SEXP VAR_MLE(SEXP Y_, SEXP X_, SEXP PARA_, SEXP MAXITER_, SEXP TOL_)
 	free(vy2);
 	free(temp);
 	free(x);
+	free(theta);
+	free(theta0);
+	free(grad);
 
 	// Outcome
 	SEXP _output, _sigma2, _r_names;

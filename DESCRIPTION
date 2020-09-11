@@ -2,16 +2,12 @@ Package: RidgeVar
 Type: Package
 Title: Estimation of error variance via ridge regression
 Version: 1.0.1
-Authors@R: c(person(given = "Xu", family = "Liu", role = c("aut", "cre")),
-             person(given = "Shurong", family = "Zheng", role = "aut"),
-             person(given = "Xingdong", family = "Feng", role = "aut"),
-             person(given = "Xiao", family = "Zhang", role = "ctb"))
 Author: Xu Liu [aut,cre], 
         Shurong Zheng [aut],  
         Xingdong Feng [aut],
         Xiao Zhang [ctb]
 Maintainer: Xu Liu <liu.xu@sufe.edu.cn>
-Description: Provide several methods to estimate the error variance for high-dimensional linear regression models, which includes the ridge regression based method of Liu et al. (2019), the refitted cross validation of Fan et al. (2012), the maximum likelihood based method of Dicker and Erdogdu (2016), and the moments based method of Dicker (2014).
+Description: Provide several methods to estimate the error variance for high-dimensional linear regression models, which includes the ridge regression based method of Liu et al. (2020), the refitted cross validation of Fan et al. (2012), the maximum likelihood based method of Dicker and Erdogdu (2016), and the moments based method of Dicker (2014).
 License: GPL (>= 2)
 Depends: R (>= 3.2.0)
 Imports: glmnet

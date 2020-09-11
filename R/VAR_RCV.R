@@ -1,6 +1,9 @@
 VAR_RCV <- function(y,x){
+  if(is.null(x)) stop("x must not be NA")
+  if(is.null(y)) stop("y must not be NA")
   n = nrow(x)
   p = ncol(x)
+  if(is.null(p)) p = 1
   half = ceiling(n/2)
   x1 = x[1:half,]
   y1 = y[1:half]
