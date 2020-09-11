@@ -1,5 +1,5 @@
 # RidgeVar
-R package "RidgeVar" for estimation of error variance via ridge regression. Provide several methods to estimate the error variance for high-dimensional linear regression models, which includes the ridge regression based method of Liu et al. (2019), the refitted cross validation of Fan et al. (2012), the maximum likelihood based method of Dicker and Erdogdu (2016), and the moments based method of Dicker (2014).
+R package "RidgeVar" for estimation of error variance via ridge regression. Provide several methods to estimate the error variance for high-dimensional linear regression models, which includes the ridge regression based method of Liu et al. (2020), the refitted cross validation of Fan et al. (2012), the maximum likelihood based method of Dicker and Erdogdu (2016), and the moments based method of Dicker (2014).
 
 # Installation
 
@@ -57,7 +57,7 @@ Dicker, L. H. and Erdogdu, M. A. (2016). Maximum likelihood for variance estimat
 
 Fan, J., Guo, S. and Hao, N. (2012). Variance estimation using refitted cross-validation in ultrahigh-dimensional regression. Journal of Royal Statistical Society Series B 74, 37-65.
 
-Liu, X., Zheng, S. and Feng, X. (2020). Estimation of error variance via ridge regression. Biometrika. Biometrika, 107, 481-488. [DOI: 10.1093/biomet/asz074](DOI:10.1093/biomet/asz074)
+Liu, X., Zheng, S. and Feng, X. (2020). Estimation of error variance via ridge regression. Biometrika, 107, 481-488. [DOI: 10.1093/biomet/asz074](DOI:10.1093/biomet/asz074)
 
 # Development
 This R package is developed by Xu Liu (liu.xu@sufe.edu.cn) and Xiao Zhang.
