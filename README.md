@@ -10,7 +10,7 @@ R package "RidgeVar" for estimation of error variance via ridge regression. Prov
 # Usage
 
    - [x] [RidgeVar-manual.pdf](https://github.com/xliusufe/RidgeVar/blob/master/inst/RidgeVar-manual.pdf) ---------- Details of the usage of the package.
-   - [x] [ridgevar](https://github.com/xliusufe/RidgeVarpy) ------------------------ the corresponding `Python` package
+   - [x] [ridgevar](https://github.com/xliusufe/RidgeVarpy) ------------------------ The corresponding `Python` package
    - [x] [Bioka20200481.pdf](https://github.com/xliusufe/RidgeVar/blob/master/inst/Bioka20200481.pdf) ------------ The published paper Liu et al. (2020).   
 # Example
     library(RidgeVar)
@@ -19,9 +19,9 @@ R package "RidgeVar" for estimation of error variance via ridge regression. Prov
     n   <- 80
     p   <- 100
     beta <- c(sqrt(0.1/p)*rep(1,p/2),rep(0,p/2))
-    eps <- rnorm(n)
     x <- matrix(rnorm(n*p),n,p)
-    y <- x%*%beta+eps
+    y <- rnorm(n)
+    y <- y + x%*%beta
     fit <- VAR_RR(y,x)
 
     Example 2. the usage of the function "VAR_RR" when `q>1`
